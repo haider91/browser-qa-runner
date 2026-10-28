@@ -1,0 +1,17 @@
+{
+  "jobId": "local-test",
+  "urls": [
+    "https://www.voila.digital/",
+    "https://www.voila.digital/services/web-application-development",
+    "https://www.voila.digital/services/seo-local-search",
+    "https://www.voila.digital/services/digital-marketing-services",
+    "https://www.voila.digital/services/mvp-development"
+  ],
+  "concurrency": 5,
+  "navTimeoutMs": 45000,
+  "loadWaitMs": 12000,
+  "settleMs": 2000,
+  "retries": 1,
+  "blockHosts": ["youtube.com", "youtube-nocookie.com", "ytimg.com", "googlevideo.com", "doubleclick.net",
+    "googlesyndication.com", "google-analytics.com", "googletagmanager.com", "facebook.net", "hotjar.com", "clarity.ms"]
+}

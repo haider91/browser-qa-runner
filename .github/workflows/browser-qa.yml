@@ -1,0 +1,64 @@
+name: Browser QA
+
+# Started by a caller (e.g. an n8n workflow) through the API:
+#   POST /repos/{owner}/{repo}/actions/workflows/browser-qa.yml/dispatches
+#   { "ref": "main", "inputs": { "job": "<JSON>", "callback_url": "...", "job_id": "..." } }
+# Inputs are only ever passed through env, never written into a script (no injection, nothing echoed).
+on:
+  workflow_dispatch:
+    inputs:
+      job:
+        description: 'Job JSON: {"urls":[...], "concurrency":5, "navTimeoutMs":45000, ...}'
+        required: true
+        type: string
+      callback_url:
+        description: URL that receives the results (POST JSON). Empty = results only in the log summary.
+        required: false
+        type: string
+        default: ''
+      job_id:
+        description: Caller reference, shown in the run name
+        required: false
+        type: string
+        default: ''
+
+run-name: Browser QA ${{ inputs.job_id }}
+
+permissions:
+  contents: read
+
+jobs:
+  qa:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - name: Mask callback URL
+        env:
+          CALLBACK_URL: ${{ inputs.callback_url }}
+        run: |
+          if [ -n "$CALLBACK_URL" ]; then echo "::add-mask::$CALLBACK_URL"; fi
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Run browser QA
+        env:
+          QA_JOB: ${{ inputs.job }}
+        run: node run.mjs --out results.json
+
+      - name: Send results
+        if: always()
+        env:
+          CALLBACK_URL: ${{ inputs.callback_url }}
+          CALLBACK_SECRET: ${{ secrets.CALLBACK_SECRET }}
+          JOB_ID: ${{ inputs.job_id }}
+        run: node callback.mjs results.json
