@@ -30,7 +30,11 @@ try {
 }
 
 // The URL itself is never printed: it lets anyone resume the waiting workflow.
-for (let attempt = 1; attempt <= 3; attempt++) {
+// n8n answers 409 while the execution is still being saved before it waits ("is running already"), so 409,
+// 429, 5xx and network errors are retried for about 10 minutes. Other 4xx (bad secret, unknown or finished
+// execution) will not change by retrying.
+const MAX_ATTEMPTS = 20;
+for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
   try {
     const res = await fetch(url, {
       method: 'POST',
@@ -38,12 +42,13 @@ for (let attempt = 1; attempt <= 3; attempt++) {
       body,
       signal: AbortSignal.timeout(60000),
     });
-    console.log(`Callback attempt ${attempt}: HTTP ${res.status}`);
+    const detail = res.ok ? '' : ` ${(await res.text().catch(() => '')).replace(/\s+/g, ' ').slice(0, 160)}`;
+    console.log(`Callback attempt ${attempt}: HTTP ${res.status}${detail}`);
     if (res.ok) process.exit(0);
-    if (res.status < 500 && res.status !== 429) break;
+    if (res.status < 500 && res.status !== 429 && res.status !== 409) break;
   } catch (e) {
     console.log(`Callback attempt ${attempt} failed: ${String((e && e.message) || e).slice(0, 200)}`);
   }
-  await new Promise((r) => setTimeout(r, attempt * 10000));
+  if (attempt < MAX_ATTEMPTS) await new Promise((r) => setTimeout(r, 30000));
 }
 process.exit(1);
